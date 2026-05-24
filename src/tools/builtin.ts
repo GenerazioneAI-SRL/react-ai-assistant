@@ -73,12 +73,18 @@ export function buildBuiltinTools(confirmDestructive: boolean): AiTool[] {
         "Scroll the page so a specific snippet of body text is visible and briefly highlight it. " +
         "Use after get_page_text whenever the user asks about, refers to, or wants to be shown a " +
         "specific passage, paragraph, product name, or section — so they can see in the page itself " +
-        "where the answer comes from.",
+        "where the answer comes from. You may pass several candidate phrases; the first that matches " +
+        "wins (try the most specific/unique phrase first, then a fallback like the section heading).",
       parameters: {
         text: {
           type: "string",
           description:
-            "Text to find on the page (case-insensitive). Keep it short (a unique phrase, a heading, a product name) — long substrings often fail because they cross HTML element boundaries.",
+            "A text snippet to find. Keep it short (1-6 words). Use a heading or unique noun, not the whole sentence.",
+        },
+        candidates: {
+          type: "array",
+          description:
+            "Optional ordered list of fallback phrases to try if `text` does not match. Useful when the exact wording is uncertain.",
         },
         highlight: {
           type: "boolean",
@@ -86,8 +92,23 @@ export function buildBuiltinTools(confirmDestructive: boolean): AiTool[] {
         },
       },
       required: ["text"],
-      handler: (a, ctx) =>
-        ctx.scrollToText(String(a.text), { highlight: a.highlight !== false }),
+      handler: async (a, ctx): Promise<ToolResult> => {
+        const opts = { highlight: a.highlight !== false };
+        const tried: string[] = [];
+        const queue: string[] = [String(a.text)];
+        if (Array.isArray(a.candidates)) {
+          for (const c of a.candidates) if (typeof c === "string" && c.trim()) queue.push(c);
+        }
+        for (const q of queue) {
+          tried.push(q);
+          const res = await ctx.scrollToText(q, opts);
+          if (res.ok) return res;
+        }
+        return {
+          ok: false,
+          error: `None of the candidate phrases matched: ${tried.map((t) => `"${t}"`).join(", ")}`,
+        };
+      },
     },
     {
       name: "get_page_text",
@@ -104,7 +125,12 @@ export function buildBuiltinTools(confirmDestructive: boolean): AiTool[] {
       handler: (a, ctx): ToolResult => {
         const budget = typeof a.maxChars === "number" ? a.maxChars : undefined;
         const text = ctx.readPageText(budget);
-        return ok(text ? "Page text read" : "No readable text on this page", undefined, text || undefined);
+        if (!text) {
+          return ok("No readable text on this page", undefined, undefined);
+        }
+        const reminder =
+          "\n\n[REMINDER] Now call scroll_to_text with a short unique phrase (1-6 words: a heading, a product name, a feature label) from the passage you are about to summarise — and pass 2-3 fallbacks in `candidates`. The aura highlight is how the user sees where your answer comes from. Do this BEFORE writing your final reply.";
+        return ok("Page text read", undefined, text + reminder);
       },
     },
     {
