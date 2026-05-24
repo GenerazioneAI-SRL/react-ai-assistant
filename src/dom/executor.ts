@@ -86,7 +86,8 @@ export class ActionExecutor {
   /**
    * Find a snippet of body text on the page, scroll it into view, and (by default)
    * paint an animated "AI aura" on the surrounding block + a gradient highlight on
-   * the matched phrase. Returns ok=false if no match is found.
+   * the matched phrase. Falls back to a block-level match when the phrase crosses
+   * element boundaries (e.g. inside `<strong>` or split by trademark glyphs).
    */
   async scrollToText(
     query: string,
@@ -97,57 +98,59 @@ export class ActionExecutor {
     if (!needle) return { ok: false, error: "Empty query" };
 
     const root = document.querySelector<HTMLElement>("main") ?? document.body;
-    const lc = needle.toLowerCase();
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        if (parent.closest("[data-ai-ignore]")) return NodeFilter.FILTER_REJECT;
-        const tag = parent.tagName;
-        if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT")
-          return NodeFilter.FILTER_REJECT;
-        const text = (node.textContent ?? "").toLowerCase();
-        return text.includes(lc) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      },
-    });
-
-    const node = walker.nextNode() as Text | null;
-    if (!node) return { ok: false, error: `Text not found: "${needle}"` };
-
-    const text = node.textContent ?? "";
-    const idx = text.toLowerCase().indexOf(lc);
-    const range = document.createRange();
-    range.setStart(node, idx);
-    range.setEnd(node, idx + needle.length);
-
     const wantsHighlight = opts?.highlight !== false;
-    const block = wantsHighlight ? pickBlockAncestor(node.parentElement) : null;
 
     if (wantsHighlight) injectAuraStyles();
     if (wantsHighlight) clearExistingAuras();
 
-    const rect = range.getBoundingClientRect();
-    const targetY = window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2;
-    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    const exact = findExactTextNode(root, needle);
+    const fallback = exact ? null : findContainingElement(root, needle);
 
+    if (!exact && !fallback) {
+      return { ok: false, error: `Text not found: "${needle}"` };
+    }
+
+    let block: HTMLElement | null = null;
     let mark: HTMLElement | null = null;
+    let scrollTarget: { top: number } | null = null;
+
+    if (exact) {
+      const range = document.createRange();
+      range.setStart(exact.node, exact.idx);
+      range.setEnd(exact.node, exact.idx + needle.length);
+      const rect = range.getBoundingClientRect();
+      scrollTarget = {
+        top: Math.max(0, window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2),
+      };
+      if (wantsHighlight) {
+        block = pickBlockAncestor(exact.node.parentElement);
+        mark = document.createElement("mark");
+        mark.setAttribute("data-ai-ignore", "");
+        mark.setAttribute("data-ai-highlight", "");
+        try {
+          range.surroundContents(mark);
+        } catch {
+          mark = null;
+        }
+      }
+    } else if (fallback) {
+      const rect = fallback.getBoundingClientRect();
+      scrollTarget = {
+        top: Math.max(0, window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2),
+      };
+      if (wantsHighlight) block = pickBlockAncestor(fallback);
+    }
+
+    if (scrollTarget) window.scrollTo({ top: scrollTarget.top, behavior: "smooth" });
+
+    if (wantsHighlight && block) {
+      const prevPos = block.style.position;
+      if (!prevPos) block.style.position = "relative";
+      block.setAttribute("data-ai-aura", "");
+      (block as HTMLElement & { __aiAuraPrevPos?: string }).__aiAuraPrevPos = prevPos;
+    }
+
     if (wantsHighlight) {
-      mark = document.createElement("mark");
-      mark.setAttribute("data-ai-ignore", "");
-      mark.setAttribute("data-ai-highlight", "");
-      try {
-        range.surroundContents(mark);
-      } catch {
-        mark = null;
-      }
-
-      if (block) {
-        const prevPos = block.style.position;
-        if (!prevPos) block.style.position = "relative";
-        block.setAttribute("data-ai-aura", "");
-        (block as HTMLElement & { __aiAuraPrevPos?: string }).__aiAuraPrevPos = prevPos;
-      }
-
       const fadeAfter = opts?.durationMs ?? 3200;
       setTimeout(() => {
         if (block) block.classList.add("ai-aura-fade");
@@ -157,8 +160,81 @@ export class ActionExecutor {
     }
 
     await this.waitForStable(500);
-    return { ok: true, message: `Scrolled to "${needle}"` };
+    return {
+      ok: true,
+      message: exact
+        ? `Scrolled to "${needle}"`
+        : `Scrolled to block containing "${needle}" (phrase spans multiple elements)`,
+    };
   }
+}
+
+/* ----------------------------- text search ------------------------------ */
+
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[™®©°]/g, "") // strip ™®©°
+    .replace(/[‘’“”]/g, "'") // smart quotes
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findExactTextNode(
+  root: HTMLElement,
+  needle: string
+): { node: Text; idx: number } | null {
+  const lc = needle.toLowerCase();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      if (parent.closest("[data-ai-ignore]")) return NodeFilter.FILTER_REJECT;
+      const tag = parent.tagName;
+      if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT")
+        return NodeFilter.FILTER_REJECT;
+      return (node.textContent ?? "").toLowerCase().includes(lc)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const node = walker.nextNode() as Text | null;
+  if (!node) return null;
+  const idx = (node.textContent ?? "").toLowerCase().indexOf(lc);
+  return idx >= 0 ? { node, idx } : null;
+}
+
+function findContainingElement(root: HTMLElement, needle: string): HTMLElement | null {
+  const norm = normalizeText(needle);
+  if (!norm) return null;
+
+  let best: HTMLElement | null = null;
+  let bestLen = Infinity;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode(node) {
+      const el = node as HTMLElement;
+      if (el.closest("[data-ai-ignore]")) return NodeFilter.FILTER_REJECT;
+      const tag = el.tagName;
+      if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT" || tag === "SVG")
+        return NodeFilter.FILTER_REJECT;
+      const text = normalizeText(el.textContent ?? "");
+      if (!text.includes(norm)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  // Walker descends only into accepted nodes — so deeper hits are children of the
+  // current node and naturally produce a smaller textContent length.
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const el = node as HTMLElement;
+    const len = (el.textContent ?? "").length;
+    if (len < bestLen) {
+      best = el;
+      bestLen = len;
+    }
+  }
+  return best;
 }
 
 /* ----------------------------- aura helpers ----------------------------- */
