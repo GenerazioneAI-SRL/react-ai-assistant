@@ -32,6 +32,15 @@ export async function buildSystemPrompt(config: AiAssistantConfig): Promise<stri
     );
   }
 
+  if (config.locale) {
+    parts.push(
+      `\nLANGUAGE: The user's interface language is "${config.locale}". ` +
+        `Reply to the user in that language. ` +
+        `If you do not recognise the locale tag or cannot produce fluent text in it, fall back to English. ` +
+        `Tool names, JSON keys, and element ids stay in their original form regardless of language.`
+    );
+  }
+
   if (config.appPurpose) parts.push(`\nABOUT THIS APP:\n${config.appPurpose}`);
   if (config.domainInstructions) parts.push(`\nDOMAIN INSTRUCTIONS:\n${config.domainInstructions}`);
 

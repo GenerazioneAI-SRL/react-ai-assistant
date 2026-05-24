@@ -177,6 +177,32 @@ export interface AiAssistantConfig {
   /** Text shown in the pending bubble while the agent works. Default "Working...". */
   workingText?: string;
   initialSuggestions?: AiSuggestion[];
+
+  /* i18n -------------------------------------------------------------- */
+  /**
+   * BCP-47 locale or language tag passed in by the host app (e.g. "it",
+   * "en-US"). Injected into the system prompt so the LLM replies in the
+   * user's language. The library does not detect this on its own — pass
+   * whatever the host site already knows (next-intl, i18next, ...).
+   */
+  locale?: string;
+  /** Override the built-in English widget strings. Any field left out keeps the default. */
+  widgetTexts?: Partial<WidgetTexts>;
+}
+
+/** UI strings rendered by AiAssistantWidget. Override via config.widgetTexts. */
+export interface WidgetTexts {
+  openButtonLabel: string;
+  clearTitle: string;
+  closeTitle: string;
+  composerPlaceholder: string;
+  composerAnswerPlaceholder: string;
+  sendButton: string;
+  stopButton: string;
+  handoffTitle: string;
+  handoffDoneButton: string;
+  /** Receives the button label. Default: `Tap "${label}" to confirm.` */
+  handoffConfirmHint: (buttonLabel: string) => string;
 }
 
 /* ------------------------------ Chat UI --------------------------------- */

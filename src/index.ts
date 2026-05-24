@@ -17,6 +17,7 @@ export type {
   LlmToolCall,
   ChatMessage,
   ActionStep,
+  WidgetTexts,
 } from "./types";
 
 // Core

@@ -9,7 +9,20 @@ import {
   type CSSProperties,
 } from "react";
 import { Assistant, type AssistantState } from "../core/assistant";
-import type { AiAssistantConfig } from "../types";
+import type { AiAssistantConfig, WidgetTexts } from "../types";
+
+const DEFAULT_TEXTS: WidgetTexts = {
+  openButtonLabel: "Open AI assistant",
+  clearTitle: "Clear",
+  closeTitle: "Close",
+  composerPlaceholder: "Ask me to do something...",
+  composerAnswerPlaceholder: "Type your answer...",
+  sendButton: "Send",
+  stopButton: "Stop",
+  handoffTitle: "Your turn",
+  handoffDoneButton: "Done",
+  handoffConfirmHint: (buttonLabel) => `Tap "${buttonLabel}" to confirm.`,
+};
 
 interface AiContextValue {
   assistant: Assistant;
@@ -72,6 +85,7 @@ export function AiAssistantWidget() {
   if (!ctx) return null;
   const { assistant, state } = ctx;
   const name = assistant.config.assistantName ?? "AI Assistant";
+  const texts: WidgetTexts = { ...DEFAULT_TEXTS, ...(assistant.config.widgetTexts ?? {}) };
 
   const submit = () => {
     const text = input.trim();
@@ -84,7 +98,7 @@ export function AiAssistantWidget() {
     <>
       <style>{AI_STYLES}</style>
       <button
-        aria-label="Open AI assistant"
+        aria-label={texts.openButtonLabel}
         data-ai-ignore=""
         onClick={() => setOpen((v) => !v)}
         style={styles.fab}
@@ -97,10 +111,10 @@ export function AiAssistantWidget() {
           <div style={styles.header}>
             <span style={{ fontWeight: 600 }}>{name}</span>
             <div>
-              <button onClick={() => assistant.clear()} style={styles.headerBtn} title="Clear">
+              <button onClick={() => assistant.clear()} style={styles.headerBtn} title={texts.clearTitle}>
                 ⟲
               </button>
-              <button onClick={() => setOpen(false)} style={styles.headerBtn} title="Close">
+              <button onClick={() => setOpen(false)} style={styles.headerBtn} title={texts.closeTitle}>
                 ✕
               </button>
             </div>
@@ -162,15 +176,15 @@ export function AiAssistantWidget() {
 
             {state.isHandoff && state.handoff ? (
               <div style={styles.handoff}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Your turn</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{texts.handoffTitle}</div>
                 <div style={{ fontSize: 13 }}>{state.handoff.summary}</div>
                 {state.handoff.buttonLabel ? (
                   <div style={{ fontSize: 12, marginTop: 6, opacity: 0.8 }}>
-                    Tap “{state.handoff.buttonLabel}” to confirm.
+                    {texts.handoffConfirmHint(state.handoff.buttonLabel)}
                   </div>
                 ) : null}
                 <button style={styles.handoffBtn} onClick={() => assistant.resolveHandoff()}>
-                  Done
+                  {texts.handoffDoneButton}
                 </button>
               </div>
             ) : null}
@@ -184,16 +198,16 @@ export function AiAssistantWidget() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit();
               }}
-              placeholder={state.pendingQuestion ? "Type your answer..." : "Ask me to do something..."}
+              placeholder={state.pendingQuestion ? texts.composerAnswerPlaceholder : texts.composerPlaceholder}
               style={styles.input}
             />
             {state.isProcessing ? (
               <button style={styles.sendBtn} onClick={() => assistant.stop()}>
-                Stop
+                {texts.stopButton}
               </button>
             ) : (
               <button style={styles.sendBtn} onClick={submit}>
-                Send
+                {texts.sendButton}
               </button>
             )}
           </div>
