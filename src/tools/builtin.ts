@@ -68,6 +68,28 @@ export function buildBuiltinTools(confirmDestructive: boolean): AiTool[] {
       handler: (_a, ctx): ToolResult => ok("Screen read", undefined, ctx.describeScreen()),
     },
     {
+      name: "scroll_to_text",
+      description:
+        "Scroll the page so a specific snippet of body text is visible and briefly highlight it. " +
+        "Use after get_page_text whenever the user asks about, refers to, or wants to be shown a " +
+        "specific passage, paragraph, product name, or section — so they can see in the page itself " +
+        "where the answer comes from.",
+      parameters: {
+        text: {
+          type: "string",
+          description:
+            "Text to find on the page (case-insensitive). Keep it short (a unique phrase, a heading, a product name) — long substrings often fail because they cross HTML element boundaries.",
+        },
+        highlight: {
+          type: "boolean",
+          description: "Flash a temporary highlight on the match. Default true.",
+        },
+      },
+      required: ["text"],
+      handler: (a, ctx) =>
+        ctx.scrollToText(String(a.text), { highlight: a.highlight !== false }),
+    },
+    {
       name: "get_page_text",
       description:
         "Read the full readable body text of the current page (headings, paragraphs, lists). " +

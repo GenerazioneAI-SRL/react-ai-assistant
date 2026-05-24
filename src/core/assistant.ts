@@ -175,6 +175,7 @@ export class Assistant {
       click: (id, context) => this.executor.click(id, context),
       fill: (id, value, context) => this.executor.fill(id, value, context),
       scroll: (dir, id) => this.executor.scroll(dir, id),
+      scrollToText: (query, opts) => this.executor.scrollToText(query, opts),
       navigate: async (route) => {
         if (this.config.navigate) await this.config.navigate(route);
         else if (typeof location !== "undefined") location.assign(route);

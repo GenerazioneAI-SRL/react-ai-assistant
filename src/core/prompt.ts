@@ -22,7 +22,8 @@ export async function buildSystemPrompt(config: AiAssistantConfig): Promise<stri
     `- If a needed element is not visible, scroll or navigate to find it before acting.`,
     `- Use ask_user only when genuinely blocked by ambiguity, never to confirm routine steps.`,
     `- Never invent data; if you need app data, use a provided tool.`,
-    `- When the user asks about page content (a product description, an article, "tell me about X on this page", "what does this page say"), call get_page_text BEFORE answering. The screen snapshot lists interactive elements only; readable copy lives in the page body.`
+    `- When the user asks about page content (a product description, an article, "tell me about X on this page", "what does this page say"), call get_page_text BEFORE answering. The screen snapshot lists interactive elements only; readable copy lives in the page body.`,
+    `- After answering about a specific passage, heading, product, or section, also call scroll_to_text with a short unique phrase from that passage so the user can see in the page where the answer comes from. Keep the highlight phrase short — long substrings can cross element boundaries and fail to highlight.`
   );
 
   if (config.confirmDestructiveActions !== false) {

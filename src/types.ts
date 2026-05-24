@@ -42,6 +42,7 @@ export interface ToolContext {
   click: (id: string, context?: string) => Promise<ToolResult>;
   fill: (id: string, value: string, context?: string) => Promise<ToolResult>;
   scroll: (direction: "up" | "down" | "left" | "right", id?: string) => Promise<ToolResult>;
+  scrollToText: (query: string, opts?: { highlight?: boolean; durationMs?: number }) => Promise<ToolResult>;
   navigate: (route: string) => Promise<void> | void;
   goBack: () => void;
   askUser: (question: string) => Promise<string>;
