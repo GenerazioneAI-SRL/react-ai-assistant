@@ -12,7 +12,7 @@ export interface OpenAiProviderOptions {
 }
 
 export class OpenAiProvider implements LlmProvider {
-  readonly name = "openai";
+  readonly name: string = "openai";
   private model: string;
   private temperature: number;
   private baseUrl: string;

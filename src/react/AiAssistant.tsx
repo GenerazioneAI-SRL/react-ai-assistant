@@ -10,19 +10,7 @@ import {
 } from "react";
 import { Assistant, type AssistantState } from "../core/assistant";
 import type { AiAssistantConfig, WidgetTexts } from "../types";
-
-const DEFAULT_TEXTS: WidgetTexts = {
-  openButtonLabel: "Open AI assistant",
-  clearTitle: "Clear",
-  closeTitle: "Close",
-  composerPlaceholder: "Ask me to do something...",
-  composerAnswerPlaceholder: "Type your answer...",
-  sendButton: "Send",
-  stopButton: "Stop",
-  handoffTitle: "Your turn",
-  handoffDoneButton: "Done",
-  handoffConfirmHint: (buttonLabel) => `Tap "${buttonLabel}" to confirm.`,
-};
+import { resolveWidgetTexts } from "../i18n/widget-texts";
 
 interface AiContextValue {
   assistant: Assistant;
@@ -120,7 +108,10 @@ export function AiAssistantWidget() {
   if (!ctx) return null;
   const { assistant, state } = ctx;
   const name = assistant.config.assistantName ?? "AI Assistant";
-  const texts: WidgetTexts = { ...DEFAULT_TEXTS, ...(assistant.config.widgetTexts ?? {}) };
+  const texts: WidgetTexts = {
+    ...resolveWidgetTexts(assistant.config.locale),
+    ...(assistant.config.widgetTexts ?? {}),
+  };
 
   const submit = () => {
     const text = input.trim();

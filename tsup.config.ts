@@ -26,4 +26,13 @@ export default defineConfig([
     sourcemap: true,
     outDir: "dist/server",
   },
+  {
+    entry: { index: "src/next/index.tsx" },
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    outDir: "dist/next",
+    external: ["react", "react-dom", "next", "next/navigation"],
+    banner: { js: '"use client";' },
+  },
 ]);

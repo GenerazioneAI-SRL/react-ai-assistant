@@ -9,6 +9,8 @@ export type { AiAssistantProviderProps } from "./AiAssistant";
 export { ClaudeProvider } from "../llm/providers/claude";
 export { OpenAiProvider } from "../llm/providers/openai";
 export { GeminiProvider } from "../llm/providers/gemini";
+export { VllmProvider } from "../llm/providers/vllm";
+export { BUILT_IN_WIDGET_TEXTS, resolveWidgetTexts } from "../i18n/widget-texts";
 export { Assistant } from "../core/assistant";
 export type { AssistantState } from "../core/assistant";
 export type {

@@ -41,6 +41,11 @@ export { OpenAiProvider } from "./llm/providers/openai";
 export type { OpenAiProviderOptions } from "./llm/providers/openai";
 export { GeminiProvider } from "./llm/providers/gemini";
 export type { GeminiProviderOptions } from "./llm/providers/gemini";
+export { VllmProvider } from "./llm/providers/vllm";
+export type { VllmProviderOptions } from "./llm/providers/vllm";
+
+// i18n
+export { BUILT_IN_WIDGET_TEXTS, resolveWidgetTexts } from "./i18n/widget-texts";
 export {
   LlmError,
   AuthenticationError,
