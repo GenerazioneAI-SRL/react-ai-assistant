@@ -123,7 +123,9 @@ export function AiAssistantWidget() {
 
             {state.messages.map((m) => {
               const fallback = m.pending && !m.text;
-              const text = fallback ? state.progressText ?? "Working..." : m.text;
+              const text = fallback
+                ? state.progressText ?? assistant.config.workingText ?? "Working..."
+                : m.text;
               const useMarkdown = m.role === "assistant" && !fallback;
               return (
                 <div

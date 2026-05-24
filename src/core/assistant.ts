@@ -107,7 +107,13 @@ export class Assistant {
     this.history.push({ role: "user", content: this.composeUserTurn(text) });
 
     this.controller = new AbortController();
-    this.set({ isProcessing: true, progressText: "Thinking...", actionSteps: [], isHandoff: false, handoff: null });
+    this.set({
+      isProcessing: true,
+      progressText: this.config.workingText ?? "Thinking...",
+      actionSteps: [],
+      isHandoff: false,
+      handoff: null,
+    });
     this.emit({ type: "conversationStarted", message: text });
 
     const pendingId = uid("msg");
@@ -181,7 +187,7 @@ export class Assistant {
       askUser: (question) =>
         new Promise<string>((resolve) => {
           this.pendingAsk = { resolve };
-          this.set({ pendingQuestion: question, progressText: "Waiting for your answer..." });
+          this.set({ pendingQuestion: question, progressText: this.config.workingText ?? "Waiting for your answer..." });
           this.addMessage("assistant", question);
           this.emit({ type: "askUser", question });
         }),
