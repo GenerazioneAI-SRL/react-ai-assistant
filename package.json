@@ -1,0 +1,54 @@
+{
+  "name": "@generazioneai/ai-assistant",
+  "version": "0.1.0",
+  "description": "Drop-in autonomous AI assistant for React & Next.js apps. Reads the live DOM/accessibility tree, executes multi-step tasks via a ReAct loop, and works with Claude, OpenAI, or Gemini.",
+  "license": "MIT",
+  "type": "commonjs",
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.mjs",
+      "require": "./dist/react/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["ai", "assistant", "agent", "react", "nextjs", "llm", "claude", "openai", "gemini", "react-agent", "automation"],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  },
+  "engines": { "node": ">=18" },
+  "publishConfig": { "access": "public" }
+}
