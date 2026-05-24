@@ -213,6 +213,8 @@ export class Assistant {
     } else if (status === "running") {
       steps.push({ id: uid("step"), label, status });
     }
-    this.set({ actionSteps: steps, progressText: label });
+    const progressText =
+      this.config.showActionSteps === false ? this.config.workingText ?? "Working..." : label;
+    this.set({ actionSteps: steps, progressText });
   }
 }

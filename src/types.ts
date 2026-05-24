@@ -172,6 +172,10 @@ export interface AiAssistantConfig {
   /* UI (consumed by the React layer) ----------------------------------- */
   assistantName?: string; // default "AI Assistant"
   showFloatingButton?: boolean; // default true
+  /** Show the per-tool action list ("Tapping #el-3", "Reading screen") in the widget. Default true. */
+  showActionSteps?: boolean;
+  /** Text shown in the pending bubble while the agent works. Default "Working...". */
+  workingText?: string;
   initialSuggestions?: AiSuggestion[];
 }
 

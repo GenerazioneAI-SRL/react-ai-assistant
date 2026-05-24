@@ -146,7 +146,9 @@ export function AiAssistantWidget() {
               );
             })}
 
-            {state.isProcessing && state.actionSteps.length > 0 ? (
+            {state.isProcessing &&
+            state.actionSteps.length > 0 &&
+            assistant.config.showActionSteps !== false ? (
               <div style={styles.steps}>
                 {state.actionSteps.map((s) => (
                   <div key={s.id} style={styles.step}>
