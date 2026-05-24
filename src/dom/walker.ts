@@ -20,6 +20,24 @@ const INTERACTIVE_SELECTOR = [
   "[onclick]",
 ].join(",");
 
+function pickMainScope(root: ParentNode): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  if (root instanceof HTMLElement) return root;
+  const doc = "ownerDocument" in root && root.ownerDocument ? root.ownerDocument : document;
+  return (
+    doc.querySelector<HTMLElement>("main") ??
+    doc.querySelector<HTMLElement>("[role=main]") ??
+    doc.querySelector<HTMLElement>("article") ??
+    doc.body
+  );
+}
+
+function collapseText(el: HTMLElement): string {
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("[data-ai-ignore],script,style,noscript").forEach((n) => n.remove());
+  return (clone.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
 function isVisible(el: HTMLElement): boolean {
   if (el.hidden) return false;
   if (el.closest("[data-ai-ignore]")) return false;
@@ -127,25 +145,86 @@ export class DomWalker {
   }
 
   /** Compact text serialization of the screen for the LLM. */
-  describe(root: ParentNode = document): string {
+  describe(root: ParentNode = document, opts?: { textBudget?: number }): string {
     const els = this.walk(root);
-    if (!els.length) return "(no interactive elements detected on screen)";
     const title = typeof document !== "undefined" ? document.title : "";
     const path = typeof location !== "undefined" ? location.pathname : "";
     const header = `Screen: "${title}" (route: ${path})`;
-    const lines = els.map((e) => {
-      const bits = [
-        `#${e.id}`,
-        e.role ?? e.tag,
-        e.label ? `"${e.label}"` : "",
-        e.type ? `type=${e.type}` : "",
-        e.value ? `value="${e.value}"` : "",
-        e.disabled ? "(disabled)" : "",
-        e.context ? `in:"${e.context}"` : "",
-      ].filter(Boolean);
-      return "- " + bits.join(" ");
-    });
-    return [header, "Interactive elements:", ...lines].join("\n");
+
+    const interactiveLines = els.length
+      ? els.map((e) => {
+          const bits = [
+            `#${e.id}`,
+            e.role ?? e.tag,
+            e.label ? `"${e.label}"` : "",
+            e.type ? `type=${e.type}` : "",
+            e.value ? `value="${e.value}"` : "",
+            e.disabled ? "(disabled)" : "",
+            e.context ? `in:"${e.context}"` : "",
+          ].filter(Boolean);
+          return "- " + bits.join(" ");
+        })
+      : ["(no interactive elements detected on screen)"];
+
+    const excerpt = this.readableText(root, opts?.textBudget ?? 1200);
+    const sections = [header, "Interactive elements:", ...interactiveLines];
+    if (excerpt) {
+      sections.push("", "Page content (excerpt — call get_page_text for the full body):", excerpt);
+    }
+    return sections.join("\n");
+  }
+
+  /**
+   * Extract human-readable text from the current screen — headings, paragraphs,
+   * list items, table cells. Skips chrome (nav/header/footer/aside), hidden
+   * nodes, and anything inside [data-ai-ignore]. Truncates at `budget` chars
+   * so it can be embedded in tool observations without blowing the context.
+   */
+  readableText(root: ParentNode = document, budget = 6000): string {
+    if (typeof document === "undefined") return "";
+    const scope = pickMainScope(root);
+    if (!scope) return "";
+
+    const blocks: string[] = [];
+    const SKIP = new Set([
+      "SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG",
+      "NAV", "HEADER", "FOOTER", "ASIDE", "FORM",
+    ]);
+    const TEXT_TAGS = new Set([
+      "H1", "H2", "H3", "H4", "H5", "H6",
+      "P", "LI", "BLOCKQUOTE", "FIGCAPTION", "TD", "TH", "DT", "DD", "SUMMARY",
+    ]);
+
+    const visit = (node: Element): void => {
+      if (!(node instanceof HTMLElement)) return;
+      if (SKIP.has(node.tagName)) return;
+      if (node.closest("[data-ai-ignore]")) return;
+      if (!isVisible(node)) return;
+
+      if (TEXT_TAGS.has(node.tagName)) {
+        const text = collapseText(node);
+        if (text) {
+          const prefix = node.tagName.startsWith("H") ? `${"#".repeat(parseInt(node.tagName[1]!, 10))} ` : "";
+          blocks.push(prefix + text);
+        }
+        return;
+      }
+      for (const child of Array.from(node.children)) visit(child);
+    };
+
+    for (const child of Array.from(scope.children)) visit(child);
+
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const b of blocks) {
+      if (seen.has(b)) continue;
+      seen.add(b);
+      deduped.push(b);
+    }
+
+    let out = deduped.join("\n");
+    if (out.length > budget) out = out.slice(0, budget).replace(/\s+\S*$/, "") + "…";
+    return out;
   }
 
   find(id: string): HTMLElement | null {

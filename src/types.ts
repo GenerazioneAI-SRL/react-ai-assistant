@@ -38,6 +38,7 @@ export interface ToolResult {
 export interface ToolContext {
   walk: () => UiElement[];
   describeScreen: () => string;
+  readPageText: (budget?: number) => string;
   click: (id: string, context?: string) => Promise<ToolResult>;
   fill: (id: string, value: string, context?: string) => Promise<ToolResult>;
   scroll: (direction: "up" | "down" | "left" | "right", id?: string) => Promise<ToolResult>;

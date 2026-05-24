@@ -165,6 +165,7 @@ export class Assistant {
     return {
       walk: () => this.walker.walk(),
       describeScreen: () => this.walker.describe(),
+      readPageText: (budget) => this.walker.readableText(undefined, budget),
       click: (id, context) => this.executor.click(id, context),
       fill: (id, value, context) => this.executor.fill(id, value, context),
       scroll: (dir, id) => this.executor.scroll(dir, id),

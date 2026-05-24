@@ -68,6 +68,24 @@ export function buildBuiltinTools(confirmDestructive: boolean): AiTool[] {
       handler: (_a, ctx): ToolResult => ok("Screen read", undefined, ctx.describeScreen()),
     },
     {
+      name: "get_page_text",
+      description:
+        "Read the full readable body text of the current page (headings, paragraphs, lists). " +
+        "Use this when the user asks about page content, an article, a product description, or " +
+        "anything that is not an interactive control.",
+      parameters: {
+        maxChars: {
+          type: "number",
+          description: "Optional character budget. Defaults to 6000.",
+        },
+      },
+      handler: (a, ctx): ToolResult => {
+        const budget = typeof a.maxChars === "number" ? a.maxChars : undefined;
+        const text = ctx.readPageText(budget);
+        return ok(text ? "Page text read" : "No readable text on this page", undefined, text || undefined);
+      },
+    },
+    {
       name: "increase_value",
       description: 'Increase a quantity stepper or slider by tapping its "+" / increment control.',
       parameters: { target: { type: "string", description: 'The "+" control id or label.' } },

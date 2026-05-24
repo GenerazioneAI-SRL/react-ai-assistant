@@ -21,7 +21,8 @@ export async function buildSystemPrompt(config: AiAssistantConfig): Promise<stri
     `- Take the smallest correct action; do not guess element ids — use only ids present in the latest snapshot.`,
     `- If a needed element is not visible, scroll or navigate to find it before acting.`,
     `- Use ask_user only when genuinely blocked by ambiguity, never to confirm routine steps.`,
-    `- Never invent data; if you need app data, use a provided tool.`
+    `- Never invent data; if you need app data, use a provided tool.`,
+    `- When the user asks about page content (a product description, an article, "tell me about X on this page", "what does this page say"), call get_page_text BEFORE answering. The screen snapshot lists interactive elements only; readable copy lives in the page body.`
   );
 
   if (config.confirmDestructiveActions !== false) {
