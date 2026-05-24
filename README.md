@@ -1,23 +1,32 @@
 # @generazioneai/ai-assistant
 
-Drop-in **autonomous AI assistant** for React & Next.js apps. It reads your live UI through the **DOM / accessibility tree** (the web equivalent of Flutter's Semantics tree), executes multi-step tasks via a **ReAct loop** (Reason → Act → Observe), and works with **Claude, OpenAI, or Gemini**.
+Drop-in **autonomous AI assistant** for React & Next.js apps. Reads your live UI through the **DOM / accessibility tree**, executes multi-step tasks via a **ReAct loop** (Reason → Act → Observe), and works with **Claude, OpenAI, Gemini, vLLM, or any LLM**.
 
-One provider. Full app control. Zero hardcoded selectors.
+Plug-and-play for Next.js — one component:
 
 ```tsx
-"use client";
-import { AiAssistantProvider, ClaudeProvider } from "@generazioneai/ai-assistant/react";
+import { NextAssistantWidget } from "@generazioneai/ai-assistant/next";
 
-<AiAssistantProvider
-  config={{ provider: new ClaudeProvider({ baseUrl: "/api/ai/anthropic" }) }}
->
-  <YourApp />
-</AiAssistantProvider>
+<NextAssistantWidget
+  vllm={{ endpoint: "/api/ai/chat", model: "google/gemma-4-31B-it" }}
+  locale="it"
+/>
 ```
 
-A floating button appears. Users type *"add 2 onions to the cart and go to checkout"* and the assistant searches, clicks, fills fields, increments quantities and navigates — autonomously.
+A floating button appears. Users type *"tell me about Private AI"* or *"go to the contact form"* and the assistant searches, scrolls, highlights, clicks, fills, and navigates — autonomously.
 
 ---
+
+## What you get
+
+- **DOM walker** that serializes every visible interactive element with a stable `data-ai-id` — no widget keys, no coordinates.
+- **Page-text extraction** so the agent can answer questions about article copy, product descriptions, etc. (not just buttons).
+- **Animated "AI aura"** highlight on the source block when the assistant references a passage — Perplexity / Antigravity style.
+- **Typewriter chat** with Markdown rendering, auto-scroll, and a floating widget.
+- **Built-in i18n** for `en / it / fr / es / de / pt`; override any string per locale.
+- **Provider-agnostic**: ships Claude, OpenAI, Gemini, vLLM helpers + a single-method interface for custom backends.
+- **Server proxies** so your LLM keys never reach the browser.
+- **Destructive-action handoff**: purchases / deletes stop and pass control back to the user.
 
 ## How it works
 
@@ -25,109 +34,116 @@ A floating button appears. Users type *"add 2 onions to the cart and go to check
 User command
    │
    ▼
-DomWalker      reads the live accessibility tree → every button, link, field, with a stable #id
+DomWalker      reads the accessibility tree → every button, link, field with a stable #id,
+               plus a readable text excerpt of the page body
    │
    ▼
 ReAct Agent    LLM plans, calls tools, observes the updated screen, repeats
    │
    ▼
-ActionExecutor clicks / types / scrolls / navigates like a real user
+ActionExecutor click / type / scroll / navigate / scroll_to_text + AI-aura highlight
 ```
 
-No widget keys, no screen coordinates. The walker serializes interactive elements (`button`, `a`, `input`, `[role=…]`, `aria-label`, …) and assigns each a stable `data-ai-id`. The agent references those ids. Anything inside `[data-ai-ignore]` is invisible to it.
+Anything inside `[data-ai-ignore]` is invisible to the agent — use it for credit-card forms, the widget's own chrome, anything sensitive.
 
 ## Install
 
 ```bash
-npm i @generazioneai/ai-assistant
+npm i github:GenerazioneAI-SRL/react-ai-assistant
 ```
 
-`react` / `react-dom` (>=18) are peer deps. The core (`@generazioneai/ai-assistant`) is framework-agnostic; React UI lives in `/react`; server proxies in `/server`.
+(or use a fork / publish to npm later). Peer deps: `react` / `react-dom` >= 18, plus `next` >= 14 *only if* you use the `/next` entry. The package's `prepare` script builds the dist on install, so installing from a git URL just works.
 
-## Quick start (Next.js App Router)
+## Entry points
 
-**1. Proxy the LLM so your key stays server-side** — `app/api/ai/anthropic/route.ts`:
+| Path | What | Bundle has `"use client"` |
+|---|---|---|
+| `@generazioneai/ai-assistant` | Core: types, walker, agent, providers (no React). | — |
+| `@generazioneai/ai-assistant/react` | `<AiAssistantProvider>`, `<AiAssistantWidget>`, `useAiAssistant()`. | ✓ |
+| `@generazioneai/ai-assistant/next` | `<NextAssistantWidget>` — plug-and-play for App Router. | ✓ |
+| `@generazioneai/ai-assistant/server` | `createAnthropicProxy / createOpenAiProxy / createGeminiProxy`. | — |
 
-```ts
-import { createAnthropicProxy } from "@generazioneai/ai-assistant/server";
-export const POST = createAnthropicProxy({ apiKey: process.env.ANTHROPIC_API_KEY! });
+## Quick start — Next.js App Router (plug-and-play)
+
+**1. Proxy the LLM** — `app/api/ai/chat/route.js`:
+
+```js
+import { createOpenAiProxy } from "@generazioneai/ai-assistant/server";
+
+export const runtime = "nodejs";
+export const POST = createOpenAiProxy({
+  apiKey: process.env.VLLM_API_KEY ?? "EMPTY",
+  baseUrl: `${process.env.VLLM_ENDPOINT}/chat/completions`,
+  allowModels: [process.env.VLLM_MODEL],
+});
 ```
 
-**2. Wrap your app** — `app/providers.tsx`:
+(For Anthropic / OpenAI / Gemini swap in `createAnthropicProxy` etc.)
 
-```tsx
-"use client";
-import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { AiAssistantProvider, ClaudeProvider } from "@generazioneai/ai-assistant/react";
+**2. Drop the widget into your layout** — `app/[locale]/layout.js`:
 
-export function AiProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
+```jsx
+import { NextAssistantWidget } from "@generazioneai/ai-assistant/next";
+
+export default async function Layout({ children, params }) {
+  const { locale } = await params;
   return (
-    <AiAssistantProvider
-      route={pathname}
-      config={{
-        provider: new ClaudeProvider({ baseUrl: "/api/ai/anthropic" }),
-        navigate: (path) => router.push(path),
-        knownRoutes: ["/", "/store", "/cart", "/profile"],
-        routeDescriptions: {
-          "/store": "Browse and buy products",
-          "/cart": "Shopping cart and checkout",
-        },
-        appPurpose:
-          'ShopApp is a grocery store. "order"/"buy" = full purchase flow; "cart" = shopping cart.',
-        domainInstructions:
-          'QUANTITIES: tap ADD first (qty=1), then "+" to increase. "5 onions" = ADD then "+" ×4.',
-        initialSuggestions: [
-          { label: "Browse store", message: "Take me to the store" },
-          { label: "View cart", message: "Show my cart" },
-        ],
-      }}
-    >
-      {children}
-    </AiAssistantProvider>
+    <html lang={locale}>
+      <body>
+        {children}
+        <NextAssistantWidget
+          vllm={{ endpoint: "/api/ai/chat", model: "google/gemma-4-31B-it" }}
+          locale={locale}
+          appPurpose="Help visitors explore services and reach the contact form."
+          knownRoutes={["/", "/about", "/contact", "/products"]}
+          initialSuggestions={[
+            { label: "Contact us", message: "I want to contact the team" },
+          ]}
+        />
+      </body>
+    </html>
   );
 }
 ```
 
-That's it. Pass `route={usePathname()}` to keep the agent route-aware and `navigate` so it can move between pages via the Next router (not full page reloads).
+That's it. `NextAssistantWidget` auto-wires `useRouter` for navigation, `usePathname` for route tracking, picks the right UI strings for the locale, and falls back to English for unknown locales.
 
-## Configuration reference (`AiAssistantConfig`)
+## Quick start — any React app
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `provider` | `LlmProvider` | — | **Required.** Claude / OpenAI / Gemini / custom. |
-| `knownRoutes` | `string[]` | `[]` | Named routes the agent can navigate to. |
-| `routeDescriptions` | `Record<string,string>` | `{}` | Human description per route. |
-| `appPurpose` | `string` | — | What the app does + intent vocabulary. |
-| `domainInstructions` | `string` | — | App-specific behavioural rules. |
-| `fewShotExamples` | `string[]` | `[]` | Example User→Actions→Response flows. |
-| `globalContextProvider` | `() => object` | — | Live app state injected each turn. |
-| `confirmDestructiveActions` | `boolean` | `true` | Hand off purchases/deletes to the user. |
-| `maxAgentIterations` | `number` | `30` | Cap on reason-act-observe cycles. |
-| `navigate` | `(route) => void` | router/`location` | SPA navigation callback. |
-| `goBack` | `() => void` | `history.back()` | Back navigation. |
-| `systemPromptOverride` | `string` | — | Replace the built-in system prompt. |
-| `customTools` | `AiTool[]` | `[]` | Business-logic tools (see below). |
-| `onEvent` | `(AiEvent) => void` | — | Analytics for every agent action. |
-| `assistantName` | `string` | `"AI Assistant"` | Header label. |
-| `showFloatingButton` | `boolean` | `true` | Render the built-in FAB + chat. |
-| `initialSuggestions` | `{label,message}[]` | `[]` | Quick-start chips. |
+Without the Next bindings:
+
+```tsx
+"use client";
+import { AiAssistantProvider, OpenAiProvider } from "@generazioneai/ai-assistant/react";
+
+<AiAssistantProvider
+  config={{
+    provider: new OpenAiProvider({ baseUrl: "/api/ai/chat", model: "gpt-4o" }),
+    locale: "en",
+    navigate: (path) => router.push(path),       // your router
+    knownRoutes: ["/", "/store", "/cart"],
+  }}
+>
+  <YourApp />
+</AiAssistantProvider>
+```
+
+`route={pathname}` is optional but recommended — keeps the agent aware of the current page.
 
 ## LLM providers
 
-All implement the same `LlmProvider` interface; switching is one line.
+All implement the same `LlmProvider` interface (`name` + `sendMessage`).
 
 ```ts
 new ClaudeProvider({ baseUrl: "/api/ai/anthropic", model: "claude-sonnet-4-5" });
-new OpenAiProvider({ baseUrl: "/api/ai/openai", model: "gpt-4o" });
-new GeminiProvider({ baseUrl: "/api/ai/gemini", model: "gemini-2.0-flash" });
+new OpenAiProvider({ baseUrl: "/api/ai/openai",   model: "gpt-4o" });
+new GeminiProvider({ baseUrl: "/api/ai/gemini",   model: "gemini-2.0-flash" });
+new VllmProvider  ({ endpoint: "/api/ai/chat",    model: "google/gemma-4-31B-it" });
 ```
 
-For local dev without a proxy you can pass an `apiKey` directly (Claude also needs `dangerousBrowserAccess: true`). **Never ship a key in the client bundle in production** — use the `/server` proxies.
+`VllmProvider` is a thin OpenAI-compatible wrapper: `apiKey` defaults to `"EMPTY"` and the `endpoint` accepts either a proxy path or a full vLLM root URL (it appends `/chat/completions` if missing).
 
-### Bring your own provider
+### Bring your own
 
 ```ts
 import type { LlmProvider, LlmRequest, LlmResponse } from "@generazioneai/ai-assistant";
@@ -135,14 +151,29 @@ import type { LlmProvider, LlmRequest, LlmResponse } from "@generazioneai/ai-ass
 class MyProvider implements LlmProvider {
   readonly name = "my-llm";
   async sendMessage(req: LlmRequest): Promise<LlmResponse> {
-    // translate req.messages + req.tools to your API, return { text?, toolCalls? }
+    // translate req.messages + req.tools to your API
+    return { text: "...", toolCalls: [] };
   }
 }
 ```
 
-## Custom tools
+## Built-in tools (always on)
 
-Expose business logic the LLM can call alongside the built-in UI tools:
+| Tool | What it does |
+|---|---|
+| `tap_element` | Click a button / link by id or visible label. |
+| `set_text` | Type into a field. Uses the native value setter so React state updates. |
+| `scroll` | Scroll up / down / left / right (page or specific element). |
+| `navigate_to_route` | SPA navigation via your `navigate` callback. |
+| `go_back` | History back. |
+| `get_screen_content` | Re-read the current screen's interactive elements. |
+| `get_page_text` | Read the body text of the page (headings, paragraphs, lists). |
+| `scroll_to_text` | Scroll to a phrase + paint an animated AI-aura on the source block. |
+| `increase_value` / `decrease_value` | Step a quantity / slider control. |
+| `ask_user` | Ask a clarifying question (use sparingly). |
+| `hand_off_to_user` | Stop and let the user perform a destructive action themselves. |
+
+### Custom tools
 
 ```ts
 customTools: [
@@ -159,19 +190,69 @@ customTools: [
 ],
 ```
 
-### Built-in tools (always on)
+## Configuration reference (`AiAssistantConfig`)
 
-`tap_element`, `set_text`, `scroll`, `navigate_to_route`, `go_back`, `get_screen_content`, `increase_value`, `decrease_value`, `ask_user`, and — when `confirmDestructiveActions` is `true` — `hand_off_to_user`.
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `provider` | `LlmProvider` | — | **Required.** Claude / OpenAI / Gemini / vLLM / custom. |
+| `locale` | `string` | — | BCP-47 tag. Picks built-in widget strings and tells the LLM which language to reply in. Falls back to English. |
+| `widgetTexts` | `Partial<WidgetTexts>` | — | Per-field overrides for the UI strings. |
+| `assistantName` | `string` | `"AI Assistant"` | Header label. |
+| `workingText` | `string` | `"Working..."` | Pending bubble text while the agent runs. |
+| `showFloatingButton` | `boolean` | `true` | Render the built-in FAB + chat. |
+| `showActionSteps` | `boolean` | `true` | Show the per-tool action list ("Tapping #el-3", "Reading screen") under the pending bubble. |
+| `initialSuggestions` | `{label,message}[]` | `[]` | Quick-start chips shown when the chat is empty. |
+| `knownRoutes` | `string[]` | `[]` | Named routes the agent can navigate to. |
+| `routeDescriptions` | `Record<string,string>` | `{}` | Description per route. |
+| `appPurpose` | `string` | — | What the app does + intent vocabulary. |
+| `domainInstructions` | `string` | — | App-specific behavioural rules. |
+| `fewShotExamples` | `string[]` | `[]` | Example User→Actions→Response flows. |
+| `globalContextProvider` | `() => object` | — | Live app state injected each turn. |
+| `confirmDestructiveActions` | `boolean` | `true` | Hand off purchases / deletes to the user. |
+| `maxAgentIterations` | `number` | `30` | Cap on reason-act-observe cycles. |
+| `navigate` | `(route) => void` | router/`location` | SPA navigation callback. |
+| `goBack` | `() => void` | `history.back()` | Back navigation. |
+| `systemPromptOverride` | `string` | — | Replace the built-in system prompt entirely. |
+| `customTools` | `AiTool[]` | `[]` | Business-logic tools. |
+| `onEvent` | `(AiEvent) => void` | — | Analytics for every agent action. |
+| `enableLogging` | `boolean` | `false` | Verbose console logs. |
+
+## i18n
+
+Built-in widget strings for `en, it, fr, es, de, pt`. The widget picks the pack from `config.locale` (BCP-47 base lookup, English fallback).
+
+```tsx
+<NextAssistantWidget locale="fr-CA" vllm={{...}} />
+// → French widget chrome, French replies from the model
+```
+
+Override any individual string:
+
+```ts
+widgetTexts: {
+  openButtonLabel: "Aide IA",
+  sendButton: "Envoie",
+}
+```
+
+Add a new language permanently (e.g. for a fork):
+
+```ts
+import { BUILT_IN_WIDGET_TEXTS } from "@generazioneai/ai-assistant";
+BUILT_IN_WIDGET_TEXTS.nl = { /* ...10 fields... */ };
+```
+
+The model's reply language is driven by the same `locale` via a system-prompt instruction with English fallback when the locale tag is unknown.
 
 ## Hiding sensitive UI
-
-The assistant only sees the accessibility tree. Exclude any subtree:
 
 ```tsx
 <div data-ai-ignore>
   <CreditCardForm />
 </div>
 ```
+
+The walker, the inline `<mark>` highlight, and the AI aura all respect this attribute.
 
 ## Headless usage (no built-in UI)
 
@@ -191,9 +272,11 @@ onEvent: (e) => analytics.track(`ai_${e.type}`, e)
 
 ## Safety
 
-- **Destructive handoff** — purchases/deletes are handed to the user for the final tap.
+- **Destructive handoff** — purchases / deletes are handed to the user for the final tap.
 - **Iteration cap** — `maxAgentIterations` prevents runaway loops.
 - **Verification** — every tool result re-reads the screen, so the model observes real outcomes.
+- **Server proxies** — keep API keys out of the client bundle in production.
+- **Sandbox** — `[data-ai-ignore]` hides any subtree from both reads and writes.
 
 ## License
 
