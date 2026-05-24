@@ -2,9 +2,10 @@ import { OpenAiProvider, type OpenAiProviderOptions } from "./openai";
 
 export interface VllmProviderOptions extends Omit<OpenAiProviderOptions, "baseUrl"> {
   /**
-   * Either a server proxy mount point (e.g. "/api/ai/chat") or a full vLLM root URL
-   * (e.g. "http://my-host:8000/v1"). Trailing slashes and a trailing "/chat/completions"
-   * suffix are both tolerated — the path is normalised to ".../chat/completions".
+   * Either a server proxy mount point (e.g. "/api/ai/chat" — the route handler
+   * already maps to chat completions internally) or a direct vLLM URL. Direct
+   * URLs that end in "/v1" get "/chat/completions" appended automatically;
+   * anything else is used as-is. Trailing slashes are tolerated.
    */
   endpoint: string;
 }
@@ -31,5 +32,8 @@ export class VllmProvider extends OpenAiProvider {
 function normalizeVllmEndpoint(endpoint: string): string {
   const trimmed = endpoint.replace(/\/+$/, "");
   if (trimmed.endsWith("/chat/completions")) return trimmed;
-  return `${trimmed}/chat/completions`;
+  // Only auto-append for direct vLLM root URLs (e.g. "http://host:8000/v1").
+  // Proxy paths like "/api/ai/chat" are passed through unchanged.
+  if (/\/v\d+$/.test(trimmed)) return `${trimmed}/chat/completions`;
+  return trimmed;
 }
