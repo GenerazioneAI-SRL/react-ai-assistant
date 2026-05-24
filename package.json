@@ -1,6 +1,6 @@
 {
   "name": "@generazioneai/ai-assistant",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Drop-in autonomous AI assistant for React & Next.js apps. Reads the live DOM/accessibility tree, executes multi-step tasks via a ReAct loop, and works with Claude, OpenAI, or Gemini.",
   "license": "MIT",
   "type": "commonjs",

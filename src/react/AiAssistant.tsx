@@ -96,12 +96,12 @@ export function AiAssistantWidget() {
     const full = last.text.length;
     setReveal((r) => ({ ...r, [last.id]: 0 }));
     let i = 0;
-    const step = Math.max(3, Math.ceil(full / 120));
+    const step = Math.max(1, Math.ceil(full / 180));
     const id = setInterval(() => {
       i = Math.min(full, i + step);
       setReveal((r) => ({ ...r, [last.id]: i }));
       if (i >= full) clearInterval(id);
-    }, 28);
+    }, 38);
     return () => clearInterval(id);
   }, [messages.length, messages[messages.length - 1]?.text, messages[messages.length - 1]?.pending]);
 

@@ -151,11 +151,11 @@ export class ActionExecutor {
     }
 
     if (wantsHighlight) {
-      const fadeAfter = opts?.durationMs ?? 3200;
+      const fadeAfter = opts?.durationMs ?? 6500;
       setTimeout(() => {
         if (block) block.classList.add("ai-aura-fade");
         if (mark) mark.classList.add("ai-aura-fade");
-        setTimeout(() => cleanupAura(block, mark), 700);
+        setTimeout(() => cleanupAura(block, mark), 900);
       }, fadeAfter);
     }
 
