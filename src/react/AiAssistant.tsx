@@ -82,6 +82,41 @@ export function AiAssistantWidget() {
   const ctx = useContext(AiContext);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [reveal, setReveal] = useState<Record<string, number>>({});
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to bottom whenever messages, progress, or reveal advance.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [
+    ctx?.state.messages.length,
+    ctx?.state.messages[ctx.state.messages.length - 1]?.text,
+    ctx?.state.progressText,
+    reveal,
+    open,
+  ]);
+
+  // Typewriter reveal for newly-arrived assistant messages.
+  const messages = ctx?.state.messages ?? [];
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || last.pending || !last.text) return;
+    if (reveal[last.id] != null) return;
+    const full = last.text.length;
+    setReveal((r) => ({ ...r, [last.id]: 0 }));
+    let i = 0;
+    const step = Math.max(3, Math.ceil(full / 120));
+    const id = setInterval(() => {
+      i = Math.min(full, i + step);
+      setReveal((r) => ({ ...r, [last.id]: i }));
+      if (i >= full) clearInterval(id);
+    }, 28);
+    return () => clearInterval(id);
+  }, [messages.length, messages[messages.length - 1]?.text, messages[messages.length - 1]?.pending]);
+
   if (!ctx) return null;
   const { assistant, state } = ctx;
   const name = assistant.config.assistantName ?? "AI Assistant";
@@ -120,7 +155,7 @@ export function AiAssistantWidget() {
             </div>
           </div>
 
-          <div style={styles.messages}>
+          <div ref={scrollRef} style={styles.messages}>
             {state.messages.length === 0 ? (
               <div style={styles.empty}>
                 {(assistant.config.initialSuggestions ?? []).map((s) => (
@@ -137,10 +172,12 @@ export function AiAssistantWidget() {
 
             {state.messages.map((m) => {
               const fallback = m.pending && !m.text;
-              const text = fallback
+              let text = fallback
                 ? state.progressText ?? assistant.config.workingText ?? "Working..."
                 : m.text;
               const useMarkdown = m.role === "assistant" && !fallback;
+              const useTyping = useMarkdown && reveal[m.id] != null && reveal[m.id] < text.length;
+              if (useTyping) text = text.slice(0, reveal[m.id]);
               return (
                 <div
                   key={m.id}
@@ -152,7 +189,7 @@ export function AiAssistantWidget() {
                 >
                   {useMarkdown ? (
                     <div
-                      className="ai-md"
+                      className={useTyping ? "ai-md ai-typing" : "ai-md"}
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
                     />
                   ) : (
@@ -188,6 +225,7 @@ export function AiAssistantWidget() {
                 </button>
               </div>
             ) : null}
+            <div ref={endRef} />
           </div>
 
           <div style={styles.composer}>
@@ -235,6 +273,8 @@ const AI_STYLES = `
 .ai-md strong{font-weight:600}
 .ai-md em{font-style:italic}
 .ai-md blockquote{border-left:3px solid #d1d5db;padding-left:8px;margin:6px 0;color:#4b5563}
+@keyframes ai-caret{50%{opacity:0}}
+.ai-typing > :last-child::after{content:"▍";display:inline-block;margin-left:2px;color:#7c3aed;animation:ai-caret 0.9s steps(1) infinite;font-weight:600}
 `;
 
 const MD_PLACEHOLDER = "\u200B__MDCB__\u200B";
